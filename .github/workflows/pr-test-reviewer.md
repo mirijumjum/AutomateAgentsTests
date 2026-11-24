@@ -11,7 +11,7 @@ permissions:
   statuses: read
   actions: read
 strict: true
-engine: pi
+engine: copilot
 model: router
 checkout: false
 tools:
