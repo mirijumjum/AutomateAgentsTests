@@ -19,6 +19,7 @@ concurrency:
 jobs:
   docs:
     if: >-
+      vars.CLAUDE_ENABLED == 'true' &&
       github.event.label.name == 'actualizar-docs' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       !startsWith(github.event.pull_request.head.ref, 'claude/')
