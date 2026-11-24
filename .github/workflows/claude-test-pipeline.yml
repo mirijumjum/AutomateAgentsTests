@@ -18,6 +18,7 @@ concurrency:
 jobs:
   pipeline:
     if: >-
+      vars.CLAUDE_ENABLED == 'true' &&
       github.event.label.name == 'generar-tests' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       !startsWith(github.event.pull_request.head.ref, 'claude/')
