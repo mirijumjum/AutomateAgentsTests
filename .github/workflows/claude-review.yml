@@ -1,0 +1,38 @@
+name: claude-review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  id-token: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            Revisa esta pull request centrándote en los tests:
+            - Lee el diff de la PR (`gh pr diff`) y los tests existentes en tests/.
+            - Indica qué cambios de comportamiento no tienen tests.
+            - Señala casos límite sin cubrir (listas vacías, divisiones por cero, etc.).
+            - Propón el test mínimo que faltaría para cada caso.
+
+            Publica la revisión como un comentario en la PR usando
+            `gh pr comment ${{ github.event.pull_request.number }} --body "..."`.
+            Escribe en español, de forma concisa.
+          claude_args: |
+            --allowedTools "Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Read,Glob,Grep"
