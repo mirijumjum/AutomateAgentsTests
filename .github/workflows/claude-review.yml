@@ -12,6 +12,7 @@ permissions:
 
 jobs:
   review:
+    if: vars.CLAUDE_ENABLED == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
