@@ -5,10 +5,11 @@
 # Cada rama que no termina en éxito consume una ronda.
 #
 # Variables requeridas: PR_NUMBER, PR_BRANCH (rama de la PR), GH_TOKEN,
-# CLAUDE_CODE_OAUTH_TOKEN. Requiere: claude (CLI), gh, git, python.
+# ANTHROPIC_API_KEY. Requiere: claude (CLI), gh, git, python.
 set -Eeuo pipefail
 
 : "${PR_NUMBER:?}" "${PR_BRANCH:?}"
+: "${ANTHROPIC_API_KEY:?Falta el secret ANTHROPIC_API_KEY (Settings > Secrets and variables > Actions)}"
 MAX_ROUNDS="${MAX_ROUNDS:-3}"
 WORK="${RUNNER_TEMP:-/tmp}/test-pipeline"
 mkdir -p "$WORK"
