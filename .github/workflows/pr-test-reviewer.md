@@ -12,7 +12,6 @@ permissions:
   actions: read
 strict: true
 engine: copilot
-model: router
 checkout: false
 tools:
   bash: [gh]
