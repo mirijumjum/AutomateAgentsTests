@@ -26,7 +26,7 @@ jobs:
             PR NUMBER: ${{ github.event.pull_request.number }}
 
             Revisa esta pull request centrándote en los tests:
-            - Lee el diff de la PR y los tests existentes en tests/.
+            - Lee el diff de la PR (`gh pr diff`) y los tests existentes en tests/.
             - Indica qué cambios de comportamiento no tienen tests.
             - Señala casos límite sin cubrir (listas vacías, divisiones por cero, etc.).
             - Propón el test mínimo que faltaría para cada caso.
