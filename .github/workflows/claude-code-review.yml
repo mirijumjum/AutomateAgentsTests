@@ -1,0 +1,77 @@
+name: claude-code-review
+
+# Revisor de código: linter + restos olvidados (parte determinista)
+# y code smells / comentarios olvidados (parte de Claude).
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  id-token: write
+
+jobs:
+  code-review:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install -r requirements-dev.txt
+
+      - name: Informe determinista (ruff + restos olvidados)
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          mkdir -p .ci-artifacts
+          BASE="origin/${BASE_REF}"
+          {
+            echo "## ruff"
+            ruff check . --output-format=concise || true
+            echo
+            echo "## Líneas añadidas con marcas olvidadas (TODO/FIXME/XXX/HACK/print/breakpoint/pdb)"
+            git diff "$BASE"...HEAD -U0 -- '*.py' | grep -nE '^\+[^+].*(TODO|FIXME|XXX|HACK|\bprint\(|breakpoint\(|pdb)' || echo "(ninguna)"
+            echo
+            echo "## Líneas añadidas que parecen código comentado"
+            git diff "$BASE"...HEAD -U0 -- '*.py' | grep -nE '^\+\s*#\s*(def |class |import |return |if |for |[a-z_]+\s*=|[a-z_.]+\()' || echo "(ninguna)"
+          } > .ci-artifacts/lint-report.txt
+          cat .ci-artifacts/lint-report.txt
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            Eres un revisor de código. Revisa el diff de la PR (`gh pr diff`) y lee el
+            informe determinista en .ci-artifacts/lint-report.txt (resultado de ruff y de
+            búsquedas de marcas olvidadas).
+
+            Comprueba:
+            1. Resultado del linter: resume los avisos de ruff que afecten a la PR.
+            2. Comentarios olvidados: TODO/FIXME/XXX/HACK, prints o breakpoints de depuración,
+               código comentado. Confirma o descarta los candidatos del informe y busca los que
+               el informe no detecte.
+            3. Code smells: duplicación, funciones con varias responsabilidades, nombres poco
+               claros, falta de validación de entradas, manejo de errores inconsistente entre
+               funciones, números mágicos.
+
+            Reglas: no modifiques archivos. Sé concreto (archivo y línea) y no inventes
+            problemas; si algo está bien, dilo. No revises tests salvo que contengan estos
+            problemas (otro workflow se ocupa de la cobertura).
+
+            Publica UN solo comentario con
+            `gh pr comment ${{ github.event.pull_request.number }} --body "..."`,
+            en español, con secciones: Linter, Comentarios olvidados, Code smells y
+            Veredicto (sin problemas / con observaciones).
+          claude_args: |
+            --allowedTools "Read,Glob,Grep,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr comment:*)"

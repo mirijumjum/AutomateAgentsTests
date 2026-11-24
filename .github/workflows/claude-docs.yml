@@ -1,0 +1,64 @@
+name: claude-docs
+
+# Actualiza la documentación (README.md y docs/) al poner la etiqueta
+# "actualizar-docs" en una PR. Abre una PR aparte con base en la rama de la PR.
+on:
+  pull_request:
+    types: [labeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  id-token: write
+
+concurrency:
+  group: claude-docs-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  docs:
+    if: >-
+      github.event.label.name == 'actualizar-docs' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      !startsWith(github.event.pull_request.head.ref, 'claude/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+            RAMA DE LA PR: ${{ github.event.pull_request.head.ref }}
+
+            Actualiza la documentación para que refleje los cambios de esta PR.
+
+            1. Lee el diff (`gh pr diff ${{ github.event.pull_request.number }}`), el código
+               fuente y la documentación existente (README.md, docs/).
+            2. Documenta SOLO lo que exista en el código: funciones públicas, parámetros,
+               valores devueltos, excepciones y ejemplos de uso. No inventes funcionalidades.
+               Usa los docstrings y el comportamiento real (por ejemplo, qué excepción lanza
+               cada función ante entradas inválidas).
+            3. Si no hay documentación, crea README.md; si existe, actualiza solo lo
+               necesario y conserva el estilo. Escribe en español.
+            4. Edita ÚNICAMENTE README.md y archivos dentro de docs/. No toques src/, main.py,
+               tests/ ni workflows.
+            5. Si no hay nada que actualizar, publica un comentario en la PR original con
+               `gh pr comment ${{ github.event.pull_request.number }} --body "..."` y termina.
+            6. Si hay cambios: configura git
+               (`git config user.name "claude[bot]"`,
+               `git config user.email "claude[bot]@users.noreply.github.com"`), crea la rama
+               `claude/docs-pr-${{ github.event.pull_request.number }}-${{ github.run_number }}`,
+               haz commit, `git push -u origin HEAD` y abre una PR con
+               `gh pr create --base ${{ github.event.pull_request.head.ref }}
+               --title "Actualiza documentación de PR #${{ github.event.pull_request.number }}"
+               --body "..."` con un resumen en español de lo que cambió y por qué.
+          claude_args: |
+            --allowedTools "Read,Glob,Grep,Edit,Write,Bash(git config:*),Bash(git checkout:*),Bash(git switch:*),Bash(git status:*),Bash(git diff:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr create:*),Bash(gh pr comment:*)"

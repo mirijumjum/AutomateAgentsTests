@@ -1,0 +1,50 @@
+name: claude-test-pipeline
+
+# Pipeline multiagente de tests. Se lanza al poner la etiqueta "generar-tests".
+# La lógica (rondas, guardas, veredictos) vive en .github/scripts/claude_test_pipeline.sh
+on:
+  pull_request:
+    types: [labeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: claude-test-pipeline-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  pipeline:
+    if: >-
+      github.event.label.name == 'generar-tests' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      !startsWith(github.event.pull_request.head.ref, 'claude/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - run: pip install -r requirements.txt
+      - run: npm install -g @anthropic-ai/claude-code
+
+      - name: Ejecutar pipeline
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+          MAX_ROUNDS: "3"
+        run: bash .github/scripts/claude_test_pipeline.sh
